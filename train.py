@@ -48,8 +48,20 @@ parser.add_argument('--hidden', type=int, default=200,
                     help='Number of hidden units.')
 parser.add_argument('--dropout', type=float, default=0.5,
                     help='Dropout rate (1 - keep probability).')
-parser.add_argument('--feature', type=float, default=128,
+parser.add_argument('--features', type=int, default=256,
                     help='node_2_vec_feature_dim')
+parser.add_argument('--model', type=str, default='adj',
+                    help='Choosing between the adj and the node2vec')
+
+parser.add_argument('--load_node2vec', type=bool, default=True,
+                    help='load precalculated node2vec object')
+
+#### node2vec setting
+parser.add_argument('--walk_length', type=int, default=50,
+                    help=' node2vec walk_length')
+parser.add_argument('--num_walks', type=int, default=4,
+                    help=' node2vec num_walks')
+
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -62,19 +74,25 @@ if args.cuda:
 
 
 # Load data
-adj, features, labels, idx_train = load_data_sanghyeon(features=args.feature)
+adj, features, labels, idx_train = load_data_sanghyeon(args = args)
 # bulid symmetric adj matrix
 
 print(adj.shape, features.shape, labels.shape)
 
 #### 2708*2708 matrix,  2708*1433 matrix , 2708 matrix 
 # Model and optimizer
-model = GCN(nfeat=args.feature,
-            nhid=args.hidden,
-            nclass=2,
-            # nclass=labels.max().item() + 1,
+if args.model =='adj':
+    model = GCN(nfeat=features.size()[1],
+                nhid=args.hidden,
+                nclass=2,
+                dropout=args.dropout)
+elif args.model =='node2vec':
+    model = GCN(nfeat=args.features,
+                nhid=args.hidden,
+                nclass=2,
+                # nclass=labels.max().item() + 1,
+                dropout=args.dropout)
 
-            dropout=args.dropout)
 optimizer = optim.Adam(model.parameters(),
                        lr=args.lr, weight_decay=args.weight_decay)
 
