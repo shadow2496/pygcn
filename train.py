@@ -48,6 +48,8 @@ parser.add_argument('--hidden', type=int, default=200,
                     help='Number of hidden units.')
 parser.add_argument('--dropout', type=float, default=0.5,
                     help='Dropout rate (1 - keep probability).')
+parser.add_argument('--feature', type=float, default=128,
+                    help='node_2_vec_feature_dim')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -60,14 +62,14 @@ if args.cuda:
 
 
 # Load data
-adj, features, labels, idx_train = load_data_sanghyeon()
+adj, features, labels, idx_train = load_data_sanghyeon(features=args.feature)
 # bulid symmetric adj matrix
 
 print(adj.shape, features.shape, labels.shape)
 
 #### 2708*2708 matrix,  2708*1433 matrix , 2708 matrix 
 # Model and optimizer
-model = GCN(nfeat=features.shape[1],
+model = GCN(nfeat=args.feature,
             nhid=args.hidden,
             nclass=2,
             # nclass=labels.max().item() + 1,

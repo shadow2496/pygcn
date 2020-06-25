@@ -31,6 +31,13 @@ def make_graph(file_path):
     assert g.number_of_nodes() == node_num 
     return g
 
+def get_graph_features(graph):
+    ### Degree
+
+    ### Get pagerank
+    # page_rank = 
+    pass
+
 paper_author = make_graph(data_dir+'paper_author.txt')
 # query_private = make_graph(data_dir+'query_prive.txt')
 # query_public = make_graph(data_dir+'query_public.txt')
@@ -77,7 +84,7 @@ class Random_Dataloader(object):
         self.transform = transform
             with open(class_path) as f:
         self.classes = f.read().splitlines()
-z
+
 
     def __len__(self):
         return len(self.landmarks_frame)
