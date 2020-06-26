@@ -41,17 +41,17 @@ parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/')
 
 parser.add_argument('--epochs_pretrain', type=int, default=50, help='Number of epochs to pretrain.')
 parser.add_argument('--epochs_train', type=int, default=100, help='Number of epochs to train.')
-parser.add_argument('-b', '--batch_size', type=int, default=128)
+parser.add_argument('-b', '--batch_size', type=int, default=32)
 parser.add_argument('-j', '--workers', type=int, default=4)
 
-parser.add_argument('--lr', type=float, default=0.01, help='Initial learning rate.')
+parser.add_argument('--lr', type=float, default=0.0001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate (1 - keep probability).')
 
 parser.add_argument('--feature_node', type=int, default=256, help='node_2_vec_feature_dim')
 parser.add_argument('--hidden_gcn', type=int, default=200)
 parser.add_argument('--feature_gcn', type=int, default=128)
-parser.add_argument('--hidden_rnn', type=int, default=32)
+parser.add_argument('--hidden_rnn', type=int, default=1024)
 parser.add_argument('--model', type=str, default='adj', help='Choosing between the adj and the node2vec')
 
 # node2vec setting
@@ -97,9 +97,12 @@ elif args.model == 'node2vec':
                 nhid=args.hidden_gcn,
                 nclass=args.feature_gcn,
                 dropout=args.dropout)
-rnn = RNN(args.feature_gcn, args.hidden_rnn)
+# rnn = RNN(args.feature_gcn, args.hidden_rnn)
+rnn = RNN(args.feature_gcn)
+
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(list(model.parameters()) + list(rnn.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+# optimizer = optim.Adam(rnn.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
     model.cuda()
@@ -123,7 +126,9 @@ def train(epoch, epochs, is_pretrain=False):
         if not is_pretrain:
             labels = labels.cuda()
         embedding = model(features, adj)
+
         embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
+        # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
         logits = rnn(queries, embedding)
 
         if is_pretrain:
@@ -143,6 +148,8 @@ def train(epoch, epochs, is_pretrain=False):
 
         with torch.no_grad():
             embedding = model(features, adj)
+            # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
+
             embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
             val_bar = tqdm(val_loader)
             val_results = {'correct': 0, 'num_queries': 0}
@@ -151,7 +158,7 @@ def train(epoch, epochs, is_pretrain=False):
                 labels = labels.cuda()
                 logits = rnn(queries, embedding)
 
-                val_results['correct'] += torch.sum((logits > 0.0) == labels.byte()).item()
+                val_results['correct'] += torch.sum((logits > 0.0) == labels.bool()).item()
                 val_results['num_queries'] += queries.size(1)
                 val_bar.set_description("acc: {:4f}".format(val_results['correct'] / val_results['num_queries']))
 
@@ -169,15 +176,16 @@ def train(epoch, epochs, is_pretrain=False):
 if __name__ == '__main__':
     if not os.path.exists(os.path.join(args.checkpoint_dir, args.name)):
         os.makedirs(os.path.join(args.checkpoint_dir, args.name))
-    torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN.ckpt'))
-    torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN.ckpt'))
 
     # Train model
     t_total = time.time()
-    for epoch in range(args.epochs_pretrain):
-        train(epoch + 1, args.epochs_pretrain, is_pretrain=True)
+    # for epoch in range(args.epochs_pretrain):
+    #     train(epoch + 1, args.epochs_pretrain, is_pretrain=False)
     for epoch in range(args.epochs_train):
         train(epoch + 1, args.epochs_train)
+        if epoch//20==0:
+            torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN_%s.ckpt')%(epoch))
+            torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN_%s.ckpt')%(epoch))
 
     print("Optimization Finished!")
     print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
