@@ -6,7 +6,7 @@ from node2vec import Node2Vec
 import pickle
 import os
 
-################상현 추가#######################
+#######################################
 def get_edge_pair(node_list):
     pairs=[]
     list_len=len(node_list)
@@ -25,12 +25,12 @@ def make_graph(file_path):
     for num, line in enumerate(file_name.readlines()):
         if num ==0:
             node_num, edge_num =  map(int, line.split())
-            for i in range(node_num):
+            for i in range(node_num+2):
                 g.add_node(i+1)
         else:    
             node_list = list(map(int, line.split()))
             g.add_edges_from(get_edge_pair(node_list))
-    assert g.number_of_nodes() == node_num 
+    assert g.number_of_nodes() == node_num+2 
     return g
 
 def make_random_adj(graph,nodelist, matirx_size=10000):
@@ -53,20 +53,18 @@ def encode_onehot(labels):
     return labels_onehot
 
 ####여기에 feautres를 더 추가해줄 여력이 있을 듯 하긴 함...
-def get_features(g):
+# def get_features(g):
     # Degree = g.degree()
     # page_rank = nx.pagerank(g, alpha = 0.85)
     # between_centraily = nx.edge_betweenness_centrality(g)
-    simrank = nx.simrank_similarity(g)
-
+    # simrank = nx.simrank_similarity(g)
     # katz = nx.katz_centrality(g)
-    print(simrank)
-
+    # print(simrank)
 # nx.relabel_nodes(G, { n:str(n) for n in G.nodes()})
 
 
 
-def load_data_sanghyeon(args,path="./project_data/", dataset="paper_author.txt"):
+def load_data(args,path="./project_data/", dataset="paper_author.txt"):
     """Load citation network dataset (cora only for now)"""
     print('Loading {} dataset...'.format(dataset))
 
@@ -101,28 +99,10 @@ def load_data_sanghyeon(args,path="./project_data/", dataset="paper_author.txt")
                             )
             with open(file_name, 'wb') as file:
                 pickle.dump(node2vec, file)
+        print(node2vec.fit(window=1))
         features = torch.tensor(node2vec.fit(window=1,min_count=0).wv.vectors)
 
-
-    # get_features(paper_author)
-    # idx_features_labels = np.genfromtxt("{}{}.content".format(path, dataset),
-    #                                     dtype=np.dtype(str))
-    # features = sp.csr_matrix(idx_features_labels[:, 1:-1], dtype=np.float32)
-    # labels = encode_onehot(idx_features_labels[:, -1])
-    # build graph
-    idx = np.arange(paper_author.number_of_nodes(), dtype=np.int32)
-    idx_train = idx
-    #### For test, 나중에 지울거임 (label 안 받게)
-    labels = torch.randn([58646])
-    labels = labels>-0.2
-    labels = labels.long()
-    # labels = torch.LongTensor(np.where(labels)[1])
-
-    idx_train = torch.LongTensor(idx_train)
-    print(features)
-
-
-    return adj, features, labels, idx_train#, idx_val, idx_test
+    return adj, features#, labels, idx_train, idx_val, idx_test
 
 def normalize(mx):
     """Row-normalize sparse matrix"""

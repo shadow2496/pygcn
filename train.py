@@ -74,12 +74,11 @@ if args.cuda:
 
 
 # Load data
-adj, features, labels, idx_train = load_data_sanghyeon(args = args)
+adj, features = load_data_(args = args)
 # bulid symmetric adj matrix
 
-print(adj.shape, features.shape, labels.shape)
+print(adj.shape, features.shape)
 
-#### 2708*2708 matrix,  2708*1433 matrix , 2708 matrix 
 # Model and optimizer
 if args.model =='adj':
     model = GCN(nfeat=features.size()[1],
@@ -100,7 +99,7 @@ if args.cuda:
     model.cuda()
     features = features.cuda()
     adj = adj.cuda()
-    labels = labels.cuda()
+    # labels = labels.cuda()
     # idx_train = idx_train.cuda()
     # idx_val = idx_val.cuda()
     # idx_test = idx_test.cuda()
