@@ -1,1 +1,1 @@
-python train.py -model node2vec -features 256
+python train.py --name test --model node2vec
