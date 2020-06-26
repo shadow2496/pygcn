@@ -74,7 +74,7 @@ if args.cuda:
 
 
 # Load data
-adj, features = load_data_(args = args)
+adj, features = load_data(args = args)
 # bulid symmetric adj matrix
 
 print(adj.shape, features.shape)
