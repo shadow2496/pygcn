@@ -1,15 +1,60 @@
-import numpy as np
-import scipy.sparse as sp
-import torch
+import os
+import pickle
+import random
+
 import networkx as nx
 from node2vec import Node2Vec
-import pickle
-import os
+import numpy as np
+from scipy import sparse as sp
+import torch
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset
+
+
+class CoauthorDataset(Dataset):
+    def __init__(self, filename, dataset_dir='./project_data/'):
+        super(CoauthorDataset, self).__init__()
+
+        self.load_labels = False
+        self.queries = []
+        SOS = 58647
+        EOS = 58648
+
+        with open(os.path.join(dataset_dir, filename), 'r') as f:
+            for line in f.readlines()[1:]:
+                query = list(map(int, line.split()))
+                # random.shuffle(query)
+                self.queries.append([SOS, *query, EOS])
+
+        if filename == 'query_public.txt':
+            self.load_labels = True
+            with open(os.path.join(dataset_dir, 'answer_public.txt'), 'r') as f:
+                self.labels = [float(line.strip() == 'True') for line in f]
+
+    def __getitem__(self, index):
+        if self.load_labels:
+            return self.queries[index], self.labels[index]
+        else:
+            return self.queries[index], None
+
+    def __len__(self):
+        return len(self.queries)
+
+
+def collate_fn(batched_samples):
+    batched_samples = sorted(batched_samples, key=lambda t: len(t[0]), reverse=True)
+    queries = pad_sequence([torch.tensor(sample[0]) for sample in batched_samples])
+    if batched_samples[0][1] is not None:
+        labels = torch.tensor([sample[1] for sample in batched_samples])
+        return queries, labels
+    else:
+        return queries, None
+
 
 #######################################
 def get_edge_pair(node_list):
-    pairs=[]
-    list_len=len(node_list)
+    pairs = []
+    list_len = len(node_list)
     for i in range(list_len):
         if i == (list_len-1):
             break
@@ -18,32 +63,34 @@ def get_edge_pair(node_list):
             pairs.append((node_list[i], item))
     return pairs
 
+
 # node_list=[]
 def make_graph(file_path):
-    file_name = open(file_path,'r' )
-    g= nx.Graph()
+    file_name = open(file_path, 'r')
+    g = nx.Graph()
     for num, line in enumerate(file_name.readlines()):
-        if num ==0:
-            node_num, edge_num =  map(int, line.split())
+        if num == 0:
+            node_num, edge_num = map(int, line.split())
             for i in range(node_num+2):
                 g.add_node(i+1)
         else:    
             node_list = list(map(int, line.split()))
             g.add_edges_from(get_edge_pair(node_list))
-    assert g.number_of_nodes() == node_num+2 
+    assert g.number_of_nodes() == node_num+2
     return g
 
-def make_random_adj(graph,nodelist, matirx_size=10000):
+
+def make_random_adj(graph, nodelist, matirx_size=10000):
     # adj = adj.todense()
     random_node = np.arange(graph.number_of_nodes())
     random_node[nodelist] = 0
-    random_index = np.random.choice(random_node,matirx_size-len(nodelist), replace=False) 
+    random_index = np.random.choice(random_node, matirx_size-len(nodelist), replace=False)
     random_index = np.insert(random_index, 0, nodelist)
-    output = nx.adjacency_matrix(graph, nodelist = random_index)
+    output = nx.adjacency_matrix(graph, nodelist=random_index)
     return output
-
-
 #################################################
+
+
 def encode_onehot(labels):
     classes = set(labels)
     classes_dict = {c: np.identity(len(classes))[i, :] for i, c in
@@ -63,8 +110,7 @@ def encode_onehot(labels):
 # nx.relabel_nodes(G, { n:str(n) for n in G.nodes()})
 
 
-
-def load_data(args,path="./project_data/", dataset="paper_author.txt"):
+def load_data(args, path="./project_data/", dataset="paper_author.txt"):
     """Load citation network dataset (cora only for now)"""
     print('Loading {} dataset...'.format(dataset))
 
@@ -78,31 +124,31 @@ def load_data(args,path="./project_data/", dataset="paper_author.txt"):
     adj = normalize(adj + sp.eye(adj.shape[0]))
     adj = sparse_mx_to_torch_sparse_tensor(adj)
 
-    if args.model =='adj':
+    if args.model == 'adj':
         features = adj
 
-    elif args.model =='node2vec':
+    elif args.model == 'node2vec':
         print('Already exist Node2vec file')
-        file_name = './Node2vec_walk_%s_num_walks_%s.pickle'%(str(args.walk_length),str(args.num_walks))
+        file_name = './Node2vec_walk_%s_num_walks_%s.pickle' % (str(args.walk_length), str(args.num_walks))
         if os.path.isfile(file_name):
             with open(file_name, 'rb') as file:
-                node2vec=pickle.load(file)
+                features = pickle.load(file)
         else:
-            node2vec = Node2Vec(graph=paper_author, # target graph
-                                dimensions=int(args.features), # embedding dimension
-                                walk_length=int(args.walk_length), # number of nodes in each walks 
-                                p = 1, # return hyper parameter
-                                q = 0.0001, # inout parameter, q값을 작게 하면 structural equivalence를 강조하는 형태로 학습됩니다. 
-                                weight_key=None, # if weight_key in attrdict 
+            node2vec = Node2Vec(graph=paper_author,  # target graph
+                                dimensions=int(args.feature_node),  # embedding dimension
+                                walk_length=int(args.walk_length),  # number of nodes in each walks
+                                p=2,  # return hyper parameter
+                                q=1,  # inout parameter, q값을 작게 하면 structural equivalence를 강조하는 형태로 학습됩니다.
+                                weight_key=None,  # if weight_key in attrdict
                                 num_walks=int(args.num_walks), 
                                 workers=4,
-                            )
+                                )
+            features = torch.tensor(node2vec.fit(window=10, min_count=0).wv.vectors)
             with open(file_name, 'wb') as file:
-                pickle.dump(node2vec, file)
-        print(node2vec.fit(window=1))
-        features = torch.tensor(node2vec.fit(window=1,min_count=0).wv.vectors)
+                pickle.dump(features, file)
 
-    return adj, features#, labels, idx_train, idx_val, idx_test
+    return adj, features  # , labels, idx_train, idx_val, idx_test
+
 
 def normalize(mx):
     """Row-normalize sparse matrix"""
@@ -129,6 +175,7 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     values = torch.from_numpy(sparse_mx.data)
     shape = torch.Size(sparse_mx.shape)
     return torch.sparse.FloatTensor(indices, values, shape)
+
 
 if __name__ == "__main__":
     adj, features, labels, idx_train = load_data_sanghyeon()
