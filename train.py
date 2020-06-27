@@ -51,7 +51,6 @@ parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate (1 
 parser.add_argument('--feature_node', type=int, default=256, help='node_2_vec_feature_dim')
 parser.add_argument('--hidden_gcn', type=int, default=200)
 parser.add_argument('--feature_gcn', type=int, default=128)
-parser.add_argument('--hidden_rnn', type=int, default=1024)
 parser.add_argument('--model', type=str, default='adj', help='Choosing between the adj and the node2vec')
 
 # node2vec setting
@@ -71,8 +70,6 @@ if args.cuda:
 # Load data
 adj, features = load_data(args=args)
 # bulid symmetric adj matrix
-
-print(adj.shape, features.shape)
 
 pretrain_dataset = CoauthorDataset('paper_author.txt')
 pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, collate_fn=collate_fn)
@@ -97,7 +94,6 @@ elif args.model == 'node2vec':
                 nhid=args.hidden_gcn,
                 nclass=args.feature_gcn,
                 dropout=args.dropout)
-# rnn = RNN(args.feature_gcn, args.hidden_rnn)
 rnn = RNN(args.feature_gcn)
 
 criterion = nn.BCEWithLogitsLoss()
