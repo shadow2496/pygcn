@@ -41,7 +41,7 @@ parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/')
 
 parser.add_argument('--epochs_pretrain', type=int, default=50, help='Number of epochs to pretrain.')
 parser.add_argument('--epochs_train', type=int, default=100, help='Number of epochs to train.')
-parser.add_argument('-b', '--batch_size', type=int, default=32)
+parser.add_argument('-b', '--batch_size', type=int, default=16)
 parser.add_argument('-j', '--workers', type=int, default=4)
 
 parser.add_argument('--lr', type=float, default=0.0001, help='Initial learning rate.')
@@ -126,7 +126,6 @@ def train(epoch, epochs, is_pretrain=False):
         if not is_pretrain:
             labels = labels.cuda()
         embedding = model(features, adj)
-
         embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
         # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
         logits = rnn(queries, embedding)
@@ -148,9 +147,8 @@ def train(epoch, epochs, is_pretrain=False):
 
         with torch.no_grad():
             embedding = model(features, adj)
-            # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
-
             embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
+            # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
             val_bar = tqdm(val_loader)
             val_results = {'correct': 0, 'num_queries': 0}
             for queries, labels in val_bar:
@@ -179,13 +177,13 @@ if __name__ == '__main__':
 
     # Train model
     t_total = time.time()
-    # for epoch in range(args.epochs_pretrain):
-    #     train(epoch + 1, args.epochs_pretrain, is_pretrain=False)
+    for epoch in range(args.epochs_pretrain):
+        train(epoch + 1, args.epochs_pretrain, is_pretrain=True)
     for epoch in range(args.epochs_train):
         train(epoch + 1, args.epochs_train)
-        if epoch//20==0:
-            torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN_%s.ckpt')%(epoch))
-            torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN_%s.ckpt')%(epoch))
+        if epoch % 10 == 0:
+            torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN_{:03d}.ckpt'.format(epoch)))
+            torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN_{:03d}.ckpt'.format(epoch)))
 
     print("Optimization Finished!")
     print("Total time elapsed: {:.4f}s".format(time.time() - t_total))

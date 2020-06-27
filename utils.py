@@ -24,7 +24,8 @@ class CoauthorDataset(Dataset):
             for line in f.readlines()[1:]:
                 query = list(map(int, line.split()))
                 # random.shuffle(query)
-                self.queries.append([SOS, *query, EOS])
+                # self.queries.append([SOS, *query, EOS])
+                self.queries.append(query)
 
         if filename == 'query_public.txt':
             self.load_labels = True
@@ -44,7 +45,6 @@ class CoauthorDataset(Dataset):
 def collate_fn(batched_samples):
     batched_samples = sorted(batched_samples, key=lambda t: len(t[0]), reverse=True)
     queries = pad_sequence([torch.tensor(sample[0]) for sample in batched_samples])
-    # queries = pad_sequence([torch.tensor(26) for sample in batched_samples])
 
     if batched_samples[0][1] is not None:
         labels = torch.tensor([sample[1] for sample in batched_samples])
@@ -79,7 +79,6 @@ def make_graph(file_path):
         else:    
             node_list = list(map(int, line.split()))
             g.add_edges_from(get_edge_pair(node_list))
-
     assert g.number_of_nodes() == node_num+2
     return g
 
@@ -150,7 +149,6 @@ def load_data(args, path="./project_data/", dataset="paper_author.txt"):
             features = torch.tensor(node2vec.fit(window=10, min_count=0).wv.vectors)
             with open(file_name, 'wb') as file:
                 pickle.dump(features, file)
-    print(features)
     return adj, features  # , labels, idx_train, idx_val, idx_test
 
 
