@@ -48,6 +48,8 @@ class RNN(nn.Module):
         self.fc = nn.Linear(embedding_size, 1, bias=False)
 
     def forward(self, x, embedding):
-        h = self.cell(embedding[x])
+        mask = (x == 0)
+        h = self.cell(embedding[x], src_key_padding_mask=mask.t())
+        h[mask] = 0.0
         output = self.fc(h.sum(0))
         return output.squeeze()
