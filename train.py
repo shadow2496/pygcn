@@ -11,6 +11,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from utils import CoauthorDataset, paper_collate_fn, query_collate_fn, make_graph, make_random_adj, load_data
@@ -37,6 +38,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--name', type=str, required=True)
+parser.add_argument('--tensorboard_dir', type=str, default='./tensorboard/')
 parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/')
 
 parser.add_argument('--epochs_pretrain', type=int, default=50, help='Number of epochs to pretrain.')
@@ -108,12 +110,13 @@ if args.cuda:
     adj = adj.cuda()
 
 
-def train(epoch, epochs, is_pretrain=False):
+def train(writer, epoch, epochs, is_pretrain=False):
     t = time.time()
     model.train()
     rnn.train()
 
     train_bar = tqdm(pretrain_loader) if is_pretrain else tqdm(train_loader)
+    train_results = {'losses': 0.0, 'num_queries': 0}
     for queries, labels in train_bar:
         queries = queries.cuda()
         labels = labels.cuda()
@@ -127,8 +130,12 @@ def train(epoch, epochs, is_pretrain=False):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        train_bar.set_description("[{}/{}] loss: {:.4f}".format(epoch, epochs, loss))
 
+        train_results['losses'] += loss.item() * queries.size(1)
+        train_results['num_queries'] += queries.size(1)
+        train_bar.set_description("[{}/{}] loss: {:.4f}".format(epoch, epochs, train_results['losses'] / train_results['num_queries']))
+
+    writer.add_scalar('Loss/train', train_results['losses'] / train_results['num_queries'], epoch)
     scheduler.step()
 
     if not args.fastmode:
@@ -142,16 +149,20 @@ def train(epoch, epochs, is_pretrain=False):
             embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
             # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
             val_bar = tqdm(val_loader)
-            val_results = {'correct': 0, 'num_queries': 0}
+            val_results = {'losses': 0.0, 'correct': 0, 'num_queries': 0}
             for queries, labels in val_bar:
                 queries = queries.cuda()
                 labels = labels.cuda()
                 logits = rnn(queries, embedding)
+                loss = criterion(logits, labels)
 
+                val_results['losses'] += loss.item() * queries.size(1)
                 val_results['correct'] += torch.sum((logits > 0.0) == labels.bool()).item()
                 val_results['num_queries'] += queries.size(1)
                 val_bar.set_description("acc: {:4f}".format(val_results['correct'] / val_results['num_queries']))
 
+            writer.add_scalar('Loss/validation', val_results['losses'] / val_results['num_queries'], epoch)
+            writer.add_scalar('Accuracy', val_results['correct'] / val_results['num_queries'], epoch)
 
 # def test():
 #     model.eval()
@@ -164,15 +175,19 @@ def train(epoch, epochs, is_pretrain=False):
 
 
 if __name__ == '__main__':
+    if not os.path.exists(os.path.join(args.tensorboard_dir, args.name)):
+        os.makedirs(os.path.join(args.tensorboard_dir, args.name))
     if not os.path.exists(os.path.join(args.checkpoint_dir, args.name)):
         os.makedirs(os.path.join(args.checkpoint_dir, args.name))
+
+    writer = SummaryWriter(log_dir=os.path.join(args.tensorboard_dir, args.name))
 
     # Train model
     t_total = time.time()
     for epoch in range(args.epochs_pretrain):
-        train(epoch + 1, args.epochs_pretrain, is_pretrain=True)
+        train(writer, epoch + 1, args.epochs_pretrain, is_pretrain=True)
     for epoch in range(args.epochs_train):
-        train(epoch + 1, args.epochs_train)
+        train(writer, epoch + 1, args.epochs_train)
         if epoch % 10 == 0:
             torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN_{:03d}.ckpt'.format(epoch)))
             torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN_{:03d}.ckpt'.format(epoch)))
