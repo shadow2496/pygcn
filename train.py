@@ -41,7 +41,7 @@ parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/')
 
 parser.add_argument('--epochs_pretrain', type=int, default=50, help='Number of epochs to pretrain.')
 parser.add_argument('--epochs_train', type=int, default=100, help='Number of epochs to train.')
-parser.add_argument('-b', '--batch_size', type=int, default=16)
+parser.add_argument('-b', '--batch_size', type=int, default=32)
 parser.add_argument('-j', '--workers', type=int, default=4)
 
 parser.add_argument('--lr', type=float, default=0.0001, help='Initial learning rate.')
@@ -72,7 +72,7 @@ adj, features = load_data(args=args)
 # bulid symmetric adj matrix
 
 pretrain_dataset = CoauthorDataset('paper_author.txt')
-pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, collate_fn=collate_fn)
+pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size // 2, shuffle=True, num_workers=args.workers, collate_fn=collate_fn)
 
 train_dataset = CoauthorDataset('query_public.txt')
 val_dataset = CoauthorDataset('query_public.txt')
@@ -112,22 +112,15 @@ def train(epoch, epochs, is_pretrain=False):
     model.train()
     rnn.train()
 
-    if is_pretrain:
-        real_label = torch.ones(1).cuda()
-        train_bar = tqdm(pretrain_loader)
-    else:
-        train_bar = tqdm(train_loader)
+    train_bar = tqdm(pretrain_loader) if is_pretrain else tqdm(train_loader)
     for queries, labels in train_bar:
         queries = queries.cuda()
-        if not is_pretrain:
-            labels = labels.cuda()
+        labels = labels.cuda()
+
         embedding = model(features, adj)
         embedding = F.pad(embedding, (0, 0, 1, 0), 'constant', 0)
         # embedding = F.pad(features, (0, 0, 1, 0), 'constant', 0)
         logits = rnn(queries, embedding)
-
-        if is_pretrain:
-            labels = real_label.expand_as(logits)
         loss = criterion(logits, labels)
 
         optimizer.zero_grad()

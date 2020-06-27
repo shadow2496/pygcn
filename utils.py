@@ -28,21 +28,24 @@ class CoauthorDataset(Dataset):
                 self.queries.append(query)
 
         if filename == 'query_public.txt':
-            self.load_labels = True
             with open(os.path.join(dataset_dir, 'answer_public.txt'), 'r') as f:
                 self.labels = [float(line.strip() == 'True') for line in f]
+        else:
+            self.labels = [True] * len(self.queries)
 
     def __getitem__(self, index):
-        if self.load_labels:
-            return self.queries[index], self.labels[index]
-        else:
-            return self.queries[index], None
+        return self.queries[index], self.labels[index]
 
     def __len__(self):
         return len(self.queries)
 
 
 def collate_fn(batched_samples):
+    weight = [91240, 31701, 8651, 2662, 1087, 588, 384, 262, 215, 184, 155, 128, 121, 80, 96, 60, 58, 60, 65, 50, 24, 24, 36, 27]
+    lengths = random.choices(range(2, 26), weight, k=len(batched_samples))
+    batched_samples.extend([(sorted(random.sample(range(1, 58647), k=length)), 0.0) for length in lengths])
+    random.shuffle(batched_samples)
+
     batched_samples = sorted(batched_samples, key=lambda t: len(t[0]), reverse=True)
     queries = pad_sequence([torch.tensor(sample[0]) for sample in batched_samples])
 
