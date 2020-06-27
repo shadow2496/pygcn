@@ -44,7 +44,7 @@ parser.add_argument('--epochs_train', type=int, default=100, help='Number of epo
 parser.add_argument('-b', '--batch_size', type=int, default=32)
 parser.add_argument('-j', '--workers', type=int, default=4)
 
-parser.add_argument('--lr', type=float, default=0.0001, help='Initial learning rate.')
+parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate (1 - keep probability).')
 
@@ -99,6 +99,7 @@ rnn = RNN(args.feature_gcn)
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(list(model.parameters()) + list(rnn.parameters()), lr=args.lr, weight_decay=args.weight_decay)
 # optimizer = optim.Adam(rnn.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.3)
 
 if args.cuda:
     model.cuda()
@@ -127,6 +128,8 @@ def train(epoch, epochs, is_pretrain=False):
         loss.backward()
         optimizer.step()
         train_bar.set_description("[{}/{}] loss: {:.4f}".format(epoch, epochs, loss))
+
+    scheduler.step()
 
     if not args.fastmode:
         # Evaluate validation set performance separately,
