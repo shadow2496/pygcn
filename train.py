@@ -6,12 +6,12 @@ import os
 import time
 
 import numpy as np
+from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from utils import CoauthorDataset, paper_collate_fn, query_collate_fn, make_graph, make_random_adj, load_data
