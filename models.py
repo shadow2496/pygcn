@@ -51,5 +51,5 @@ class RNN(nn.Module):
         mask = (x == 0)
         h = self.cell(embedding[x], src_key_padding_mask=mask.t())
         h[mask] = 0.0
-        output = self.fc(h.sum(0))
+        output = self.fc(h.mean(0))
         return output.squeeze()
