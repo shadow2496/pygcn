@@ -13,7 +13,7 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 
-from utils import CoauthorDataset, collate_fn, make_graph, make_random_adj, load_data
+from utils import CoauthorDataset, paper_collate_fn, query_collate_fn, make_graph, make_random_adj, load_data
 from models import GCN, RNN
 
 
@@ -72,7 +72,7 @@ adj, features = load_data(args=args)
 # bulid symmetric adj matrix
 
 pretrain_dataset = CoauthorDataset('paper_author.txt')
-pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size // 2, shuffle=True, num_workers=args.workers, collate_fn=collate_fn)
+pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size // 2, shuffle=True, num_workers=args.workers, collate_fn=paper_collate_fn)
 
 train_dataset = CoauthorDataset('query_public.txt')
 val_dataset = CoauthorDataset('query_public.txt')
@@ -80,8 +80,8 @@ indices = list(range(len(train_dataset)))
 train_sampler = SubsetRandomSampler(indices[:int(len(train_dataset) * 0.9)])
 val_sampler = SubsetRandomSampler(indices[int(len(train_dataset) * 0.9):])
 
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=args.workers, collate_fn=collate_fn)
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size, sampler=val_sampler, num_workers=args.workers, collate_fn=collate_fn)
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=args.workers, collate_fn=query_collate_fn)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, sampler=val_sampler, num_workers=args.workers, collate_fn=query_collate_fn)
 
 # Model and optimizer
 if args.model == 'adj':

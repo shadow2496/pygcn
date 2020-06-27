@@ -40,12 +40,23 @@ class CoauthorDataset(Dataset):
         return len(self.queries)
 
 
-def collate_fn(batched_samples):
+def paper_collate_fn(batched_samples):
     weight = [91240, 31701, 8651, 2662, 1087, 588, 384, 262, 215, 184, 155, 128, 121, 80, 96, 60, 58, 60, 65, 50, 24, 24, 36, 27]
     lengths = random.choices(range(2, 26), weight, k=len(batched_samples))
     batched_samples.extend([(sorted(random.sample(range(1, 58647), k=length)), 0.0) for length in lengths])
     random.shuffle(batched_samples)
 
+    batched_samples = sorted(batched_samples, key=lambda t: len(t[0]), reverse=True)
+    queries = pad_sequence([torch.tensor(sample[0]) for sample in batched_samples])
+
+    if batched_samples[0][1] is not None:
+        labels = torch.tensor([sample[1] for sample in batched_samples])
+        return queries, labels
+    else:
+        return queries, None
+
+
+def query_collate_fn(batched_samples):
     batched_samples = sorted(batched_samples, key=lambda t: len(t[0]), reverse=True)
     queries = pad_sequence([torch.tensor(sample[0]) for sample in batched_samples])
 
