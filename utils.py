@@ -193,5 +193,13 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     return torch.sparse.FloatTensor(indices, values, shape)
 
 
+def load_checkpoint(model, checkpoint_path):
+    if not os.path.exists(checkpoint_path):
+        print("Invalid path!")
+        return
+    model.load_state_dict(torch.load(checkpoint_path))
+    model.cuda()
+
+
 if __name__ == "__main__":
     adj, features, labels, idx_train = load_data_sanghyeon()
