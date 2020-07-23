@@ -84,8 +84,8 @@ def get_edge_pair(node_list):
 def make_graph(file_path):
     file_name = open(file_path, 'r')
     g = nx.Graph()
-    edge_list =[]
-    for num, line in enumerate(file_name.readlines()):
+    lines = file_name.readlines()
+    for num, line in enumerate(lines[:int((len(lines) - 1) * 0.7) + 1]):
         if num == 0:
             node_num, edge_num = map(int, line.split())
             for i in range(node_num+2):
@@ -146,7 +146,7 @@ def load_data(args, path="./project_data/", dataset="paper_author.txt"):
 
     elif args.model == 'node2vec':
         print('Already exist Node2vec file')
-        file_name = './Node2vec_walk_%s_num_walks_%s.pickle' % (str(args.walk_length), str(args.num_walks))
+        file_name = './Node2vec_walk_%s_num_walks_%s_truncated.pickle' % (str(args.walk_length), str(args.num_walks))
         if os.path.isfile(file_name):
             with open(file_name, 'rb') as file:
                 features = pickle.load(file)

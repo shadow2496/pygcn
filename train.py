@@ -42,7 +42,7 @@ parser.add_argument('--tensorboard_dir', type=str, default='./tensorboard/')
 parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints/')
 
 parser.add_argument('--epochs_pretrain', type=int, default=50, help='Number of epochs to pretrain.')
-parser.add_argument('--epochs_train', type=int, default=100, help='Number of epochs to train.')
+parser.add_argument('--epochs_train', type=int, default=0, help='Number of epochs to train.')
 parser.add_argument('-b', '--batch_size', type=int, default=32)
 parser.add_argument('-j', '--workers', type=int, default=4)
 
@@ -74,7 +74,9 @@ adj, features = load_data(args=args)
 # bulid symmetric adj matrix
 
 pretrain_dataset = CoauthorDataset('paper_author.txt')
-pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size // 2, shuffle=True, num_workers=args.workers, collate_fn=paper_collate_fn)
+indices = list(range(len(pretrain_dataset)))
+pretrain_sampler = SubsetRandomSampler(indices[int(len(pretrain_dataset) * 0.7):])
+pretrain_loader = DataLoader(pretrain_dataset, batch_size=args.batch_size // 2, sampler=pretrain_sampler, num_workers=args.workers, collate_fn=paper_collate_fn)
 
 train_dataset = CoauthorDataset('query_public.txt')
 val_dataset = CoauthorDataset('query_public.txt')
@@ -83,7 +85,7 @@ train_sampler = SubsetRandomSampler(indices[:int(len(train_dataset) * 0.9)])
 val_sampler = SubsetRandomSampler(indices[int(len(train_dataset) * 0.9):])
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=args.workers, collate_fn=query_collate_fn)
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size, sampler=val_sampler, num_workers=args.workers, collate_fn=query_collate_fn)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.workers, collate_fn=query_collate_fn)
 
 # Model and optimizer
 if args.model == 'adj':
@@ -164,15 +166,6 @@ def train(writer, epoch, epochs, is_pretrain=False):
             writer.add_scalar('Loss/validation', val_results['losses'] / val_results['num_queries'], epoch)
             writer.add_scalar('Accuracy', val_results['correct'] / val_results['num_queries'], epoch)
 
-# def test():
-#     model.eval()
-#     output = model(features, adj)
-#     loss_test = F.nll_loss(output[idx_test], labels[idx_test])
-#     acc_test = accuracy(output[idx_test], labels[idx_test])
-#     print("Test set results:",
-#           "loss= {:.4f}".format(loss_test.item()),
-#           "accuracy= {:.4f}".format(acc_test.item()))
-
 
 if __name__ == '__main__':
     if not os.path.exists(os.path.join(args.tensorboard_dir, args.name)):
@@ -186,14 +179,11 @@ if __name__ == '__main__':
     t_total = time.time()
     for epoch in range(args.epochs_pretrain):
         train(writer, epoch + 1, args.epochs_pretrain, is_pretrain=True)
-    for epoch in range(args.epochs_train):
-        train(writer, epoch + 1, args.epochs_train)
         if epoch % 10 == 0:
             torch.save(model.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'GCN_{:03d}.ckpt'.format(epoch)))
             torch.save(rnn.state_dict(), os.path.join(args.checkpoint_dir, args.name, 'RNN_{:03d}.ckpt'.format(epoch)))
+    for epoch in range(args.epochs_train):
+        train(writer, epoch + 1, args.epochs_train)
 
     print("Optimization Finished!")
     print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
-
-# Testing
-# test()
